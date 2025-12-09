@@ -53,6 +53,7 @@ fi
 
 cat > "$HOME/.zshrc" <<'EOF'
 export PATH="$HOME/.local/bin:$PATH"
+export PATH="/usr/local/cuda/bin:$PATH"
 export ZSH="$HOME/.oh-my-zsh"
 
 # Use powerlevel10k
