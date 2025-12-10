@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 #set -euo pipefail
 
+# Allow passing TS_AUTHKEY as the first argument
+if [ -n "$1" ]; then
+  TS_AUTHKEY="$1"
+fi
+
 echo "[bootstrap] Starting bootstrap for $(whoami) on $(hostname)"
 
 # ----------------------------
@@ -124,7 +129,30 @@ else
 fi
 
 # ----------------------------
-# 7. Try to change default shell to zsh
+# 7. Install and start Tailscale
+# ----------------------------
+if ! command -v tailscale &>/dev/null; then
+  echo "[bootstrap] Installing Tailscale..."
+  curl -fsSL https://tailscale.com/install.sh | sh
+else
+  echo "[bootstrap] Tailscale already installed."
+fi
+
+if [ -n "${TS_AUTHKEY}" ]; then
+  echo "[bootstrap] Starting Tailscale..."
+  # 'sudo' might be implicit in root environments, but good to keep if user is non-root sudoer
+  sudo tailscale up \
+    --authkey="${TS_AUTHKEY}" \
+    --hostname="blackwell-gpu" \
+    --ssh=true \
+    --accept-routes=false \
+    --accept-dns=true
+else
+  echo "[bootstrap] TS_AUTHKEY not set. Skipping tailscale up."
+fi
+
+# ----------------------------
+# 8. Try to change default shell to zsh
 # ----------------------------
 if command -v zsh &>/dev/null; then
   if [ "$SHELL" != "$(command -v zsh)" ]; then
