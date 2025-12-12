@@ -129,47 +129,6 @@ else
 fi
 
 # ----------------------------
-# 7. Install and start Tailscale
-# ----------------------------
-if ! command -v tailscale &>/dev/null; then
-  echo "[bootstrap] Installing Tailscale..."
-  curl -fsSL https://tailscale.com/install.sh | sh
-else
-  echo "[bootstrap] Tailscale already installed."
-fi
-
-if [ -n "${TS_AUTHKEY}" ]; then
-  echo "[bootstrap] Starting Tailscale..."
-
-  # Ensure tailscaled daemon is running
-  if ! pgrep tailscaled >/dev/null; then
-    echo "[bootstrap] tailscaled not running. Starting in background..."
-    
-    # Check for /dev/net/tun support (missing in unprivileged containers like RunPod)
-    if [ ! -c /dev/net/tun ]; then
-      echo "[bootstrap] /dev/net/tun not found. using --tun=userspace-networking"
-      sudo tailscaled --tun=userspace-networking >/tmp/tailscaled.log 2>&1 &
-    elif command -v systemctl >/dev/null && systemctl is-system-running &>/dev/null; then
-      sudo systemctl start tailscaled
-    else
-      # Start manually if no systemd but tun exists
-      sudo tailscaled >/tmp/tailscaled.log 2>&1 &
-    fi
-    sleep 5
-  fi
-
-  # 'sudo' might be implicit in root environments, but good to keep if user is non-root sudoer
-  sudo tailscale up \
-    --authkey="${TS_AUTHKEY}" \
-    --hostname="blackwell-gpu" \
-    --ssh=true \
-    --accept-routes=false \
-    --accept-dns=true
-else
-  echo "[bootstrap] TS_AUTHKEY not set. Skipping tailscale up."
-fi
-
-# ----------------------------
 # 8. Try to change default shell to zsh
 # ----------------------------
 if command -v zsh &>/dev/null; then
