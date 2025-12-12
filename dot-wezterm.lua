@@ -65,62 +65,68 @@ config.harfbuzz_features = { "calt=0", "clig=0", "liga=0" }
 local act = wezterm.action
 
 config.keys = {
-  -- Prompt for RunPod IP and PORT
+  -- Launch RunPod Workspace (CMD+SHIFT+P)
   {
     key = 'P',
     mods = 'CMD|SHIFT',
-    action = act.PromptInputLine {
-      description = 'Enter RunPod Address (IP:PORT)',
-      action = wezterm.action_callback(function(window, pane, line)
-        if line then
-          -- Trim whitespace
-          line = line:gsub("%s+", "")
-          local ip, port = line:match("^(%S+):(%d+)$")
-          if not ip or not port then
-            wezterm.log_info("Invalid format. Use IP:PORT")
-            return
-          end
+    action = wezterm.action_callback(function(window, pane)
+      -- 1. Create the workspace with the Local GPU Dev on the LEFT
+      local workspace_name = 'runpod-setup-' .. os.time() -- unique temp name until we know the IP?
+                                                         -- Or just keep it generic?
+                                                         -- Let's use a generic setup name, or just "runpod"
+      
+      local local_gpu_dev_args = { 'ssh', '-p', '22128', 'willstockwell@localhost', '-A' }
+      local tab, left_pane, window = mux.spawn_window {
+        workspace = workspace_name,
+        cwd = wezterm.home_dir,
+        args = local_gpu_dev_args,
+      }
 
-          local workspace_name = 'runpod-' .. ip
-          local ssh_runpod_args = { 'ssh', '-A', '-p', port, 'root@' .. ip }
-          
-          -- SSH into local GPU Dev Container (12.8 -> Port 22128)
-          local local_gpu_dev_args = { 'ssh', '-p', '22128', 'willstockwell@localhost', '-A' }
+      -- 2. Create the RIGHT pane which runs a script to ask for IP:PORT
+      --    and then uses wezterm cli to split itself.
+      
+      local setup_script = [[
+        echo "Enter RunPod Address (IP:PORT):"
+        read -r input
+        if [ -n "$input" ]; then
+           # Clean input
+           input=$(echo "$input" | xargs)
+           ip=$(echo "$input" | cut -d: -f1)
+           port=$(echo "$input" | cut -d: -f2)
+           
+           if [ -z "$ip" ] || [ -z "$port" ]; then
+               echo "Invalid format. Expected IP:PORT"
+               sleep 3
+               exit 1
+           fi
+           
+           # Construct SSH command
+           # Note: We use 'root' as default user for RunPod based on previous context
+           ssh_cmd="ssh -A -p $port root@$ip"
+           
+           echo "Connecting to $ip..."
+           
+           # Rename workspace (optional, might be tricky from inside pane, skip for now)
+           
+           # 1. Split current pane (Right) vertically to create Bottom-Right (Shell)
+           # We use wezterm cli to split the pane we are running in ($WEZTERM_PANE)
+           wezterm cli split-pane --pane-id $WEZTERM_PANE --bottom --percent 50 -- $ssh_cmd
+           
+           # 2. Replace current shell (Top-Right) with gpustat via SSH
+           remote_cmd="if ! command -v gpustat &> /dev/null; then pip install gpustat; fi; watch -n0.2 gpustat --color"
+           exec $ssh_cmd -t "$remote_cmd"
+        fi
+      ]]
 
-          -- Create workspace
-          -- Left Pane: Local GPU Dev Container (SSH)
-          local tab, main_pane, window = mux.spawn_window {
-            workspace = workspace_name,
-            cwd = wezterm.home_dir,
-            args = local_gpu_dev_args,
-          }
+      local right_pane = left_pane:split {
+        direction = 'Right',
+        size = 0.5,
+        args = { 'bash', '-c', setup_script },
+      }
 
-          -- Top-right pane: RunPod GPU Stats
-          local right = main_pane:split {
-            direction = 'Right',
-            size = 0.33,
-            args = ssh_runpod_args,
-          }
-
-          -- Bottom-right pane: RunPod Shell
-          local bottom_right = right:split {
-            direction = 'Bottom',
-            size = 0.5,
-            args = ssh_runpod_args,
-          }
-
-          -- Start GPU stats in top-right
-          right:send_text('watch -n0.2 ~/.local/bin/gpustat --color\n')
-
-          -- clear the screen
-          main_pane:send_text('clear\n')
-          bottom_right:send_text('clear\n')
-
-          -- Switch to the new workspace
-          mux.set_active_workspace(workspace_name)
-        end
-      end),
-    },
+      -- Switch to the new workspace
+      mux.set_active_workspace(workspace_name)
+    end),
   },
 
   -- Launch Apollo Workspace (CMD+SHIFT+A)
