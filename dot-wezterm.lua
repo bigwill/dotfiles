@@ -110,7 +110,21 @@ config.keys = {
            
            # 1. Split current pane (Right) vertically to create Bottom-Right (Shell)
            # We use wezterm cli to split the pane we are running in ($WEZTERM_PANE)
-           wezterm cli split-pane --pane-id $WEZTERM_PANE --bottom --percent 50 -- $ssh_cmd
+           # Ensure wezterm is in path; on macOS it might not be in default PATH for non-login shells?
+           # Try full path if just 'wezterm' fails, usually /Applications/WezTerm.app/Contents/MacOS/wezterm
+           
+           WEZTERM_BIN="wezterm"
+           if ! command -v wezterm &> /dev/null; then
+               if [ -f "$HOME/Applications/WezTerm.app/Contents/MacOS/wezterm" ]; then
+                   WEZTERM_BIN="$HOME/Applications/WezTerm.app/Contents/MacOS/wezterm"
+               else
+                   echo "Error: wezterm CLI not found."
+                   sleep 5
+                   exit 1
+               fi
+           fi
+           
+           $WEZTERM_BIN cli split-pane --pane-id $WEZTERM_PANE --bottom --percent 50 -- $ssh_cmd
            
            # 2. Replace current shell (Top-Right) with gpustat via SSH
            remote_cmd="if ! command -v gpustat &> /dev/null; then pip install gpustat; fi; watch -n0.2 gpustat --color"
