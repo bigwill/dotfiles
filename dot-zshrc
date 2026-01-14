@@ -1,0 +1,106 @@
+# Shared zsh configuration
+# This file is symlinked from ~/git/dotfiles/dot-zshrc
+# Machine-specific configs should go in ~/.zshenv.local or ~/.zshrc.local
+
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# Powerlevel10k theme (handles git status - no need for zsh-git-prompt)
+# Try Homebrew location first, then fall back to oh-my-zsh
+if [ -f "/opt/homebrew/opt/powerlevel10k/powerlevel10k.zsh-theme" ]; then
+  source /opt/homebrew/opt/powerlevel10k/powerlevel10k.zsh-theme
+elif [ -f "/usr/local/opt/powerlevel10k/powerlevel10k.zsh-theme" ]; then
+  source /usr/local/opt/powerlevel10k/powerlevel10k.zsh-theme
+elif [ -f "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme" ]; then
+  source "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme"
+fi
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# Homebrew
+# Support both Apple Silicon and Intel Macs
+if [ -f "/opt/homebrew/bin/brew" ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f "/usr/local/bin/brew" ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+# PATH additions
+# Add pixi to PATH if installed
+if [ -d "$HOME/.pixi/bin" ]; then
+  export PATH="$HOME/.pixi/bin:$PATH"
+fi
+
+# Add local bin to PATH
+export PATH="$HOME/.local/bin:$PATH"
+
+# Add LM Studio to PATH if installed
+if [ -d "$HOME/.lmstudio/bin" ]; then
+  export PATH="$PATH:$HOME/.lmstudio/bin"
+elif [ -d "$HOME/Library/Application Support/LM Studio/bin" ]; then
+  export PATH="$PATH:$HOME/Library/Application Support/LM Studio/bin"
+fi
+
+# Lazy-load conda (only runs when you first call conda/python)
+conda() {
+  unfunction conda
+  # Try multiple common conda locations
+  if [ -f "$HOME/miniconda3/bin/conda" ]; then
+    __conda_setup="$('$HOME/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+    if [ $? -eq 0 ]; then
+      eval "$__conda_setup"
+    else
+      [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ] && . "$HOME/miniconda3/etc/profile.d/conda.sh"
+    fi
+  elif [ -f "$HOME/anaconda3/bin/conda" ]; then
+    __conda_setup="$('$HOME/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+    if [ $? -eq 0 ]; then
+      eval "$__conda_setup"
+    else
+      [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ] && . "$HOME/anaconda3/etc/profile.d/conda.sh"
+    fi
+  elif [ -f "/opt/homebrew/Caskroom/miniconda/base/bin/conda" ]; then
+    [ -f "/opt/homebrew/Caskroom/miniconda/base/etc/profile.d/conda.sh" ] && . "/opt/homebrew/Caskroom/miniconda/base/etc/profile.d/conda.sh"
+  fi
+  unset __conda_setup
+  conda "$@"
+}
+
+# Lazy-load rbenv (only runs when you first call ruby/gem/rbenv)
+rbenv() {
+  unfunction rbenv
+  eval "$(command rbenv init - zsh)"
+  rbenv "$@"
+}
+
+# Google Cloud SDK (lazy - only if you use gcloud)
+gcloud() {
+  unfunction gcloud
+  if [ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]; then
+    . "$HOME/google-cloud-sdk/path.zsh.inc"
+    [ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ] && . "$HOME/google-cloud-sdk/completion.zsh.inc"
+  elif [ -f "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/path.zsh.inc" ]; then
+    . "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/path.zsh.inc"
+    [ -f "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completion.zsh.inc" ] && . "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completion.zsh.inc"
+  fi
+  gcloud "$@"
+}
+
+# direnv (fast, keep eager)
+if command -v direnv &> /dev/null; then
+  eval "$(direnv hook zsh)"
+fi
+
+# Aliases
+alias cdla="cd ~/git/landscape"
+alias cdha="cd ~/git/ha-rs"
+alias cl="clear"
+alias ak='cd ~/git/abax-kryptos'
+alias fm='cd ~/git/femme'
+alias mcp='cd ~/git/ableton-mcp'
+
+# Load machine-specific configs if they exist
+# Use this for sensitive data, machine-specific paths, or personal customizations
+[ -f ~/.zshenv.local ] && source ~/.zshenv.local
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local

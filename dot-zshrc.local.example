@@ -1,0 +1,17 @@
+# Machine-specific zsh configuration
+# Copy this file to ~/.zshrc.local and customize for your machine
+# This file is NOT tracked in git (add to .gitignore)
+
+# App Store Connect API credentials
+# Move these from .zshrc to here for security
+# export APP_STORE_CONNECT_API_KEY_ID="your-key-id"
+# export APP_STORE_CONNECT_ISSUER_ID="your-issuer-id"
+
+# Machine-specific PATH additions
+# export PATH="/custom/path:$PATH"
+
+# Machine-specific aliases
+# alias custom='command'
+
+# Other machine-specific settings
+# export CUSTOM_VAR="value"

@@ -1,0 +1,26 @@
+{
+    "files.exclude": {
+        "._*": true,
+        "**/._*": true
+    },
+    "[python]": {
+        "editor.formatOnType": true
+    },
+    "editor.inlineSuggest.enabled": true,
+    "redhat.telemetry.enabled": true,
+    "application.shellEnvironmentResolutionTimeout": 120,
+    "remote.SSH.remotePlatform": {
+        "apollo": "linux",
+        "ssh.runpod.io": "linux",
+        "runpod": "linux",
+        "lambda": "linux",
+        "LambdaCloud": "linux",
+        "RunPod": "linux",
+        "gpu-dev": "linux",
+        "gpu-dev-12.8": "linux"
+    },
+    "makefile.configureOnOpen": true,
+    "editor.fontFamily": "JetBrainsMono Nerd Font",
+    "editor.fontLigatures": true,
+    "git.suggestSmartCommit": false
+}

@@ -1,0 +1,62 @@
+# Git configuration (shared)
+# This file is symlinked from ~/git/dotfiles/dot-gitconfig
+# 
+# After symlinking, set your user info:
+#   git config --global user.name "Your Name"
+#   git config --global user.email "your.email@example.com"
+
+[core]
+	editor = cursor --wait
+	excludesfile = ~/.gitignore_global
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = false
+
+[push]
+	default = simple
+
+# Use GitHub CLI for authentication
+[credential]
+	helper = !gh auth git-credential
+
+# Git LFS
+[lfs]
+	version = https://git-lfs.github.com/spec/v1
+
+# Useful aliases
+[alias]
+	st = status
+	co = checkout
+	br = branch
+	ci = commit
+	unstage = reset HEAD --
+	last = log -1 HEAD
+	visual = !cursor
+	lg = log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+
+# Diff settings
+[diff]
+	tool = cursor
+	colorMoved = default
+
+[difftool]
+	prompt = false
+
+[difftool "cursor"]
+	cmd = cursor --wait --diff $LOCAL $REMOTE
+
+# Merge settings
+[merge]
+	tool = cursor
+
+[mergetool]
+	prompt = false
+
+[mergetool "cursor"]
+	cmd = cursor --wait $MERGED
+[user]
+	name = Will Stockwell
+	email = will@humble.audio
