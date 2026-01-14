@@ -165,8 +165,8 @@ install_essential_apps() {
   fi
 
   # Powerlevel10k (via Homebrew or oh-my-zsh)
-  if [ -f "/opt/homebrew/opt/powerlevel10k/powerlevel10k.zsh-theme" ] || \
-     [ -f "/usr/local/opt/powerlevel10k/powerlevel10k.zsh-theme" ] || \
+  if [ -f "/opt/homebrew/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme" ] || \
+     [ -f "/usr/local/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme" ] || \
      [ -f "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme" ]; then
     echo "[bootstrap] ✓ Powerlevel10k is already installed"
   else
