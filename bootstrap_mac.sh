@@ -164,9 +164,36 @@ install_essential_apps() {
     fi
   fi
 
+  # Fonts (required for Cursor and WezTerm)
+  echo "[bootstrap] Checking fonts..."
+  
+  # JetBrains Mono (for WezTerm)
+  if brew list --cask font-jetbrains-mono &> /dev/null; then
+    echo "[bootstrap] ✓ JetBrains Mono is already installed"
+  else
+    echo "[bootstrap] Installing JetBrains Mono (for WezTerm)..."
+    if brew install --cask font-jetbrains-mono; then
+      echo "[bootstrap] ✓ JetBrains Mono installed"
+    else
+      echo "[bootstrap] ⚠ Failed to install JetBrains Mono"
+    fi
+  fi
+  
+  # JetBrainsMono Nerd Font (for Cursor and Powerlevel10k)
+  if brew list --cask font-jetbrains-mono-nerd-font &> /dev/null; then
+    echo "[bootstrap] ✓ JetBrainsMono Nerd Font is already installed"
+  else
+    echo "[bootstrap] Installing JetBrainsMono Nerd Font (for Cursor)..."
+    if brew install --cask font-jetbrains-mono-nerd-font; then
+      echo "[bootstrap] ✓ JetBrainsMono Nerd Font installed"
+    else
+      echo "[bootstrap] ⚠ Failed to install JetBrainsMono Nerd Font"
+    fi
+  fi
+
   # Powerlevel10k (via Homebrew or oh-my-zsh)
-  if [ -f "/opt/homebrew/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme" ] || \
-     [ -f "/usr/local/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme" ] || \
+  if [ -f "/opt/homebrew/opt/powerlevel10k/powerlevel10k.zsh-theme" ] || \
+     [ -f "/usr/local/opt/powerlevel10k/powerlevel10k.zsh-theme" ] || \
      [ -f "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme" ]; then
     echo "[bootstrap] ✓ Powerlevel10k is already installed"
   else

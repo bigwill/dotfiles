@@ -9,10 +9,10 @@ fi
 
 # Powerlevel10k theme (handles git status - no need for zsh-git-prompt)
 # Try Homebrew location first, then fall back to oh-my-zsh
-if [ -f "/opt/homebrew/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme" ]; then
-  source /opt/homebrew/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme
-elif [ -f "/usr/local/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme" ]; then
-  source /usr/local/opt/powerlevel10k/share/powerlevel10k/powerlevel10k.zsh-theme
+if [ -f "/opt/homebrew/opt/powerlevel10k/powerlevel10k.zsh-theme" ]; then
+  source /opt/homebrew/opt/powerlevel10k/powerlevel10k.zsh-theme
+elif [ -f "/usr/local/opt/powerlevel10k/powerlevel10k.zsh-theme" ]; then
+  source /usr/local/opt/powerlevel10k/powerlevel10k.zsh-theme
 elif [ -f "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme" ]; then
   source "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme"
 fi
