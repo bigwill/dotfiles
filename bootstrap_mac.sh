@@ -313,6 +313,22 @@ else
   echo "[bootstrap] dot-zshrc not found in dotfiles, skipping"
 fi
 
+# 7. Cursor MCP config (generated from template with $HOME expanded)
+if [ -f "$DOTFILES_DIR/dot-cursor-mcp.json.template" ]; then
+  CURSOR_MCP_FILE="$HOME/.cursor/mcp.json"
+  if [ "$DRY_RUN" = true ]; then
+    echo "[bootstrap] [DRY RUN] Would generate Cursor MCP config at $CURSOR_MCP_FILE"
+  else
+    mkdir -p "$HOME/.cursor"
+    # Expand $HOME in the template (leave $GITHUB_TOKEN and $POSTGRES_URL for runtime)
+    sed "s|\$HOME|$HOME|g" "$DOTFILES_DIR/dot-cursor-mcp.json.template" > "$CURSOR_MCP_FILE"
+    echo "[bootstrap] Generated Cursor MCP config at $CURSOR_MCP_FILE"
+    echo "[bootstrap] Note: Set GITHUB_TOKEN env var for GitHub MCP, POSTGRES_URL for Postgres MCP"
+  fi
+else
+  echo "[bootstrap] dot-cursor-mcp.json.template not found in dotfiles, skipping"
+fi
+
 # Verification step
 if [ "$DRY_RUN" = false ]; then
   echo
@@ -327,6 +343,14 @@ if [ "$DRY_RUN" = false ]; then
   verify_symlink "$DOTFILES_DIR/dot-sizeup.plist" "$HOME/Library/Preferences/com.irradiatedsoftware.SizeUp.plist" "SizeUp preferences" || VERIFY_FAILED=1
   verify_symlink "$DOTFILES_DIR/dot-gitconfig" "$HOME/.gitconfig" ".gitconfig" || VERIFY_FAILED=1
   verify_symlink "$DOTFILES_DIR/dot-zshrc" "$HOME/.zshrc" ".zshrc" || VERIFY_FAILED=1
+  
+  # Verify MCP config (not a symlink, just check it exists)
+  if [ -f "$HOME/.cursor/mcp.json" ]; then
+    echo "[verify] ✓ Cursor MCP config exists"
+  elif [ -f "$DOTFILES_DIR/dot-cursor-mcp.json.template" ]; then
+    echo "[verify] ✗ Cursor MCP config is missing"
+    VERIFY_FAILED=1
+  fi
   
   if [ $VERIFY_FAILED -eq 0 ]; then
     echo "[bootstrap] ✓ All symlinks verified successfully"
@@ -351,5 +375,9 @@ else
   echo "  2. Configure git user info: git config --global user.name 'Your Name'"
   echo "  3. Configure git user email: git config --global user.email 'your.email@example.com'"
   echo "  4. Run: gh auth login (for GitHub CLI)"
-  echo "  5. Review SETUP_CHECKLIST.md for additional setup steps"
+  echo "  5. Set env vars in ~/.zshrc.local for MCP servers:"
+  echo "     - GITHUB_TOKEN (for GitHub MCP)"
+  echo "     - POSTGRES_URL (for Postgres MCP, e.g. postgresql://user:pass@localhost:5432/db)"
+  echo "  6. For BlenderMCP: Install Blender addon from github.com/ahujasid/blender-mcp"
+  echo "  7. Review SETUP_CHECKLIST.md for additional setup steps"
 fi
