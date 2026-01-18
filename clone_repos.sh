@@ -30,15 +30,8 @@ for repo in "${REPOS[@]}"; do
     continue
   fi
   
-  # Special case: femme is owned by humbleaudio
-  if [ "$repo" = "femme" ]; then
-    repo_user="humbleaudio"
-  else
-    repo_user="$GITHUB_USER"
-  fi
-  
-  repo_url="https://github.com/$repo_user/$repo.git"
-  echo "[clone] Cloning $repo from $repo_user..."
+  repo_url="https://github.com/$GITHUB_USER/$repo.git"
+  echo "[clone] Cloning $repo from $GITHUB_USER..."
   
   if git clone "$repo_url" "$repo_path" 2>&1; then
     echo "[clone] ✓ Successfully cloned $repo"
