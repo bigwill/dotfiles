@@ -64,6 +64,50 @@ config.harfbuzz_features = { "calt=0", "clig=0", "liga=0" }
 ------------------------------------------------------------
 local act = wezterm.action
 
+-- Helper to get sorted workspaces in preferred order:
+-- 'local' first, then runpod-* workspaces (sorted), then 'apollo' last
+local function get_sorted_workspaces()
+  local workspaces = mux.get_workspace_names()
+  local local_ws = {}
+  local runpod_ws = {}
+  local apollo_ws = {}
+  local other_ws = {}
+
+  for _, name in ipairs(workspaces) do
+    if name == 'local' then
+      table.insert(local_ws, name)
+    elseif name:match('^runpod') then
+      table.insert(runpod_ws, name)
+    elseif name == 'apollo' then
+      table.insert(apollo_ws, name)
+    else
+      table.insert(other_ws, name)
+    end
+  end
+
+  -- Sort runpod workspaces by name (chronological if using timestamps)
+  table.sort(runpod_ws)
+  table.sort(other_ws)
+
+  -- Concatenate in order: local, runpod-*, other, apollo
+  local result = {}
+  for _, ws in ipairs(local_ws) do table.insert(result, ws) end
+  for _, ws in ipairs(runpod_ws) do table.insert(result, ws) end
+  for _, ws in ipairs(other_ws) do table.insert(result, ws) end
+  for _, ws in ipairs(apollo_ws) do table.insert(result, ws) end
+  return result
+end
+
+-- Helper to switch to workspace by index (1-based)
+local function switch_to_workspace_by_index(index)
+  return wezterm.action_callback(function(win, pane)
+    local workspaces = get_sorted_workspaces()
+    if workspaces[index] then
+      win:perform_action(act.SwitchToWorkspace({ name = workspaces[index] }), pane)
+    end
+  end)
+end
+
 config.keys = {
   -- Launch RunPod Workspace (CMD+SHIFT+P)
   {
@@ -194,50 +238,18 @@ config.keys = {
   },
 
   -- Workspace switching (CMD+1..9)
-  { key = '1', mods = 'CMD', action = act.SwitchToWorkspace { name = 'local' } },
-  -- For other workspaces, we rely on the order they appear in the switcher or cycle through them
-  -- But to explicitly map 2..9 to "next available workspaces", we'd need dynamic logic which is complex in config.
-  -- Instead, standard practice is:
-  -- CMD+1: local
-  -- CMD+2: apollo (if active)
-  -- CMD+3...: runpods
-  
-  -- Let's map CMD+1..9 to "SwitchToWorkspace index=N" logic requires WezTerm nightly or complex callback.
-  -- Simpler: Use "ShowLauncher" for list, or "SwitchWorkspaceRelative".
-  
-  -- Actually, let's just map CMD+1..9 to the built-in workspace switcher slots if possible,
-  -- OR map them to specific names if you know them.
-  -- Since names are dynamic (runpod-IP), we can't hardcode CMD+3 to a specific IP.
+  -- Order: 'local' first, then runpod-* workspaces, then 'apollo' last
+  { key = '1', mods = 'CMD', action = switch_to_workspace_by_index(1) },
+  { key = '2', mods = 'CMD', action = switch_to_workspace_by_index(2) },
+  { key = '3', mods = 'CMD', action = switch_to_workspace_by_index(3) },
+  { key = '4', mods = 'CMD', action = switch_to_workspace_by_index(4) },
+  { key = '5', mods = 'CMD', action = switch_to_workspace_by_index(5) },
+  { key = '6', mods = 'CMD', action = switch_to_workspace_by_index(6) },
+  { key = '7', mods = 'CMD', action = switch_to_workspace_by_index(7) },
+  { key = '8', mods = 'CMD', action = switch_to_workspace_by_index(8) },
+  { key = '9', mods = 'CMD', action = switch_to_workspace_by_index(9) },
 
-  -- BEST APPROACH: Map CMD+1..9 to "activate workspace by relative index"
-  -- (WezTerm doesn't have a direct "activate workspace N" action by default for dynamic lists).
-  
-  -- Alternative: Use the "ShowLauncher" (CMD+Shift+N) which lists them.
-  
-  -- However, user asked for "CMD-1..X to access in order".
-  -- We can try mapping them to a callback that finds the Nth workspace.
-  { key = '1', mods = 'CMD', action = wezterm.action_callback(function(win, pane) win:perform_action(act.SwitchToWorkspace{name='local'}, pane) end) },
-  { key = '2', mods = 'CMD', action = wezterm.action_callback(function(win, pane) 
-      local workspaces = mux.get_workspace_names()
-      table.sort(workspaces) -- Ensure consistent order (alphanumeric usually)
-      -- 'local' is usually first or we can filter.
-      -- Let's just switch to the 2nd one in the sorted list.
-      if workspaces[2] then win:perform_action(act.SwitchToWorkspace{name=workspaces[2]}, pane) end
-    end) 
-  },
-  { key = '3', mods = 'CMD', action = wezterm.action_callback(function(win, pane) 
-      local workspaces = mux.get_workspace_names()
-      table.sort(workspaces)
-      if workspaces[3] then win:perform_action(act.SwitchToWorkspace{name=workspaces[3]}, pane) end
-    end) 
-  },
-  { key = '4', mods = 'CMD', action = wezterm.action_callback(function(win, pane) 
-      local workspaces = mux.get_workspace_names()
-      table.sort(workspaces)
-      if workspaces[4] then win:perform_action(act.SwitchToWorkspace{name=workspaces[4]}, pane) end
-    end) 
-  },
-
+  -- Pane switching (ALT+1..9)
   { key = '1', mods = 'ALT', action = act.ActivatePaneByIndex(0) },
   { key = '2', mods = 'ALT', action = act.ActivatePaneByIndex(1) },
   { key = '3', mods = 'ALT', action = act.ActivatePaneByIndex(2) },
