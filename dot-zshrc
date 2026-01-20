@@ -100,6 +100,49 @@ alias ak='cd ~/git/abax-kryptos'
 alias fm='cd ~/git/femme'
 alias mcp='cd ~/git/ableton-mcp'
 
+# ============================================
+# Claude Workspace (apollo remote agents)
+# ============================================
+# These run the `cw` command on apollo via SSH
+# For full functionality, use WezTerm keybindings:
+#   CMD+SHIFT+C  - New workspace
+#   CMD+SHIFT+N  - New agent tab
+#   CMD+SHIFT+W  - Wrap up agent
+
+# Quick access from Mac terminal
+alias agents='ssh apollo -t "tmux ls 2>/dev/null | grep claude || echo \"No sessions\""'
+alias coord='ssh apollo -A -t "tmux attach -t \$(tmux ls 2>/dev/null | grep coordinator | head -1 | cut -d: -f1)"'
+
+# cw wrapper - runs cw on apollo
+# Usage: cw status, cw agent myagent, cw wrapup myagent, etc.
+cw() {
+  if [ $# -eq 0 ]; then
+    echo "Claude Workspace CLI (runs on apollo)"
+    echo ""
+    echo "  cw status         Show sessions & worktrees"
+    echo "  cw new [repo] [branch]  Create workspace"
+    echo "  cw agent [name]   Create/attach agent"
+    echo "  cw wrapup [name]  Merge & cleanup agent"
+    echo "  cw coord          Attach to coordinator"
+    echo ""
+    echo "Or use WezTerm: CMD+SHIFT+C/N/W"
+    return
+  fi
+  
+  case "$1" in
+    status|s)
+      ssh apollo "cw status"
+      ;;
+    coord|c)
+      ssh apollo -A -t "cw coord"
+      ;;
+    *)
+      # For interactive commands (new, agent, wrapup), pass through with -t
+      ssh apollo -A -t "cw $*"
+      ;;
+  esac
+}
+
 # Load machine-specific configs if they exist
 # Use this for sensitive data, machine-specific paths, or personal customizations
 [ -f ~/.zshenv.local ] && source ~/.zshenv.local

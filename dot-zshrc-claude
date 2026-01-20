@@ -1,0 +1,301 @@
+# Claude Workspace CLI for remote servers
+# Source this file on any server that will host Claude agents
+# Add to ~/.zshrc:  source ~/dot-zshrc-claude
+#
+# Prerequisites on the server:
+#   - tmux installed
+#   - git installed
+#   - Workspace initialized: ~/agent-workspace/<repo>/main (git clone)
+
+# ============================================
+# Claude Workspace CLI (cw)
+# ============================================
+
+# Default workspace base directory
+export CLAUDE_WORKSPACE_BASE="${CLAUDE_WORKSPACE_BASE:-$HOME/agent-workspace}"
+
+cw() {
+  local WORKSPACE_BASE="$CLAUDE_WORKSPACE_BASE"
+  
+  case "$1" in
+    # cw status - show all sessions and worktrees
+    status|s)
+      echo "=== Claude Agent Sessions ==="
+      tmux ls 2>/dev/null | grep claude || echo "(no sessions)"
+      echo ""
+      echo "=== Worktrees ==="
+      for repo in "$WORKSPACE_BASE"/*/main; do
+        if [ -d "$repo" ]; then
+          reponame=$(basename $(dirname "$repo"))
+          echo "$reponame:"
+          (cd "$repo" && git worktree list 2>/dev/null | sed 's/^/  /')
+          echo ""
+        fi
+      done
+      ;;
+    
+    # cw new <repo> <branch> - create new coordinator workspace
+    new|n)
+      local repo="${2:-abax-kryptos}"
+      local branch="${3:-rust-ckks-system}"
+      local session="claude-$repo-coordinator"
+      
+      echo "Creating workspace: $repo ($branch)"
+      
+      if ! [ -d "$WORKSPACE_BASE/$repo/main" ]; then
+        echo "Error: Workspace not initialized at $WORKSPACE_BASE/$repo/main"
+        echo ""
+        echo "Initialize with:"
+        echo "  mkdir -p $WORKSPACE_BASE/$repo"
+        echo "  git clone <repo-url> $WORKSPACE_BASE/$repo/main"
+        echo "  cd $WORKSPACE_BASE/$repo/main && git checkout $branch"
+        return 1
+      fi
+      
+      # Kill existing coordinator to ensure clean layout
+      tmux kill-session -t "$session" 2>/dev/null
+      
+      cd "$WORKSPACE_BASE/$repo/main"
+      git checkout "$branch" 2>/dev/null
+      
+      # Create tmux session with split panes
+      tmux new-session -d -s "$session" -c "$WORKSPACE_BASE/$repo/main"
+      tmux split-window -t "$session" -v -l 75% -c "$WORKSPACE_BASE/$repo/main"
+      
+      # Top pane: status watch (refreshes every 1s)
+      tmux send-keys -t "$session:0.0" "watch -n1 'echo \"=== Claude Agents: $repo ===\"; echo; echo \"Sessions:\"; tmux ls 2>/dev/null | grep claude-$repo || echo \"  (none)\"; echo; echo \"Worktrees:\"; git worktree list'" Enter
+      
+      # Bottom pane: interactive shell
+      tmux send-keys -t "$session:0.1" "clear && echo '=== Coordinator Shell ===' && echo && echo 'Commands: git worktree list | git diff main..<branch> | git merge <branch>' && echo" Enter
+      tmux select-pane -t "$session:0.1"
+      
+      tmux attach -t "$session"
+      ;;
+    
+    # cw agent [name] - create new agent or attach to existing
+    agent|a)
+      local name="$2"
+      
+      # Find active repo from existing coordinator session
+      local repo=$(tmux ls 2>/dev/null | grep 'claude-.*-coordinator' | head -1 | sed 's/claude-\(.*\)-coordinator.*/\1/')
+      
+      if [ -z "$repo" ]; then
+        echo "No active workspace. Run: cw new <repo> <branch>"
+        return 1
+      fi
+      
+      # Get branch from main worktree
+      local branch=$(cd "$WORKSPACE_BASE/$repo/main" && git branch --show-current)
+      
+      if [ -z "$name" ]; then
+        echo "=== Agents for $repo ==="
+        echo ""
+        echo "Existing sessions:"
+        tmux ls 2>/dev/null | grep "claude-$repo-" | grep -v coordinator || echo "  (none)"
+        echo ""
+        echo "Enter agent name (e.g., ckks-encoder, api-tests):"
+        read -r name
+        [ -z "$name" ] && return 1
+      fi
+      
+      # Sanitize name (lowercase, replace spaces with dashes)
+      name=$(echo "$name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+      
+      local session="claude-$repo-$name"
+      local agent_branch="$branch-$name"
+      local agent_dir="$WORKSPACE_BASE/$repo/$name"
+      
+      # If session exists, just attach
+      if tmux has-session -t "$session" 2>/dev/null; then
+        echo "Attaching to existing: $session"
+        tmux attach -t "$session"
+        return 0
+      fi
+      
+      echo "Creating agent: $name"
+      echo "Branch: $agent_branch"
+      echo "Worktree: $agent_dir"
+      echo ""
+      
+      # Create worktree if needed
+      if [ ! -d "$agent_dir" ]; then
+        cd "$WORKSPACE_BASE/$repo/main"
+        git worktree add "$agent_dir" -b "$agent_branch" 2>/dev/null || \
+          git worktree add "$agent_dir" "$agent_branch" 2>/dev/null || \
+          { echo "Failed to create worktree"; return 1; }
+      fi
+      
+      # Create tmux session
+      tmux new-session -d -s "$session" -c "$agent_dir"
+      tmux send-keys -t "$session" "clear && echo '=== Agent: $name ===' && echo 'Repo: $repo' && echo 'Branch: $agent_branch' && echo && echo 'Run: claude' && echo" Enter
+      tmux attach -t "$session"
+      ;;
+    
+    # cw wrapup [name] - merge agent and cleanup
+    wrapup|w)
+      local name="$2"
+      
+      local repo=$(tmux ls 2>/dev/null | grep 'claude-.*-coordinator' | head -1 | sed 's/claude-\(.*\)-coordinator.*/\1/')
+      
+      if [ -z "$repo" ]; then
+        echo "No active workspace."
+        return 1
+      fi
+      
+      local branch=$(cd "$WORKSPACE_BASE/$repo/main" && git branch --show-current)
+      
+      if [ -z "$name" ]; then
+        echo "=== Wrap Up Agent ==="
+        echo ""
+        echo "Active agents:"
+        tmux ls 2>/dev/null | grep "claude-$repo-" | grep -v coordinator | sed "s/claude-$repo-/  /" | sed 's/:.*//'
+        echo ""
+        echo "Enter agent name to wrap up:"
+        read -r name
+        [ -z "$name" ] && return 1
+      fi
+      
+      local session="claude-$repo-$name"
+      local agent_branch="$branch-$name"
+      local agent_dir="$WORKSPACE_BASE/$repo/$name"
+      
+      echo ""
+      echo "Wrapping up: $name"
+      echo "This will:"
+      echo "  1. Merge $agent_branch into $branch"
+      echo "  2. Delete worktree ($agent_dir)"
+      echo "  3. Delete branch ($agent_branch)"
+      echo "  4. Kill tmux session ($session)"
+      echo ""
+      echo "Continue? (y/n)"
+      read -r confirm
+      [ "$confirm" != "y" ] && { echo "Cancelled."; return 0; }
+      
+      # Check for uncommitted changes
+      if [ -d "$agent_dir" ]; then
+        cd "$agent_dir"
+        if [ -n "$(git status --porcelain)" ]; then
+          echo ""
+          echo "ERROR: Uncommitted changes in $agent_dir"
+          git status --short
+          echo ""
+          echo "Commit or discard changes first, then try again."
+          return 1
+        fi
+      fi
+      
+      # Merge into main branch
+      cd "$WORKSPACE_BASE/$repo/main"
+      git checkout "$branch"
+      
+      local commits=$(git rev-list --count "$branch..$agent_branch" 2>/dev/null || echo "0")
+      if [ "$commits" != "0" ]; then
+        echo ""
+        echo "Merging $commits commit(s)..."
+        git merge "$agent_branch" --no-edit || { echo "Merge failed! Resolve conflicts manually."; return 1; }
+        echo "Merge successful."
+      else
+        echo "No commits to merge."
+      fi
+      
+      # Cleanup
+      echo ""
+      echo "Cleaning up..."
+      
+      git worktree remove "$agent_dir" --force 2>/dev/null || rm -rf "$agent_dir"
+      echo "  Removed worktree"
+      
+      git branch -d "$agent_branch" 2>/dev/null || git branch -D "$agent_branch" 2>/dev/null
+      echo "  Deleted branch"
+      
+      tmux kill-session -t "$session" 2>/dev/null
+      echo "  Killed tmux session"
+      
+      echo ""
+      echo "Done! Agent '$name' has been merged and cleaned up."
+      ;;
+    
+    # cw coord - attach to coordinator
+    coord|c)
+      local session=$(tmux ls 2>/dev/null | grep 'coordinator' | head -1 | sed 's/:.*//')
+      if [ -n "$session" ]; then
+        tmux attach -t "$session"
+      else
+        echo "No coordinator session found."
+        echo "Start one with: cw new <repo> <branch>"
+      fi
+      ;;
+    
+    # cw kill [name|all] - kill sessions
+    kill|k)
+      local target="$2"
+      if [ "$target" = "all" ]; then
+        echo "Killing all claude sessions..."
+        tmux ls 2>/dev/null | grep claude | cut -d: -f1 | xargs -I{} tmux kill-session -t {}
+        echo "Done."
+      elif [ -n "$target" ]; then
+        local repo=$(tmux ls 2>/dev/null | grep 'claude-.*-coordinator' | head -1 | sed 's/claude-\(.*\)-coordinator.*/\1/')
+        tmux kill-session -t "claude-$repo-$target" 2>/dev/null && echo "Killed claude-$repo-$target" || echo "Session not found"
+      else
+        echo "Usage: cw kill <agent-name> or cw kill all"
+      fi
+      ;;
+    
+    # cw init <repo> <git-url> [branch] - initialize a new workspace
+    init|i)
+      local repo="$2"
+      local git_url="$3"
+      local branch="${4:-main}"
+      
+      if [ -z "$repo" ] || [ -z "$git_url" ]; then
+        echo "Usage: cw init <repo-name> <git-url> [branch]"
+        echo ""
+        echo "Example:"
+        echo "  cw init abax-kryptos git@github.com:user/abax-kryptos.git rust-ckks-system"
+        return 1
+      fi
+      
+      echo "Initializing workspace: $repo"
+      echo "Git URL: $git_url"
+      echo "Branch: $branch"
+      echo ""
+      
+      mkdir -p "$WORKSPACE_BASE/$repo"
+      git clone "$git_url" "$WORKSPACE_BASE/$repo/main" || { echo "Clone failed"; return 1; }
+      cd "$WORKSPACE_BASE/$repo/main"
+      git checkout "$branch" 2>/dev/null || git checkout -b "$branch"
+      
+      echo ""
+      echo "Workspace initialized at: $WORKSPACE_BASE/$repo/main"
+      echo "Run: cw new $repo $branch"
+      ;;
+    
+    # cw help
+    *)
+      echo "Claude Workspace CLI"
+      echo ""
+      echo "Usage: cw <command> [args]"
+      echo ""
+      echo "Commands:"
+      echo "  status, s              Show all sessions and worktrees"
+      echo "  new, n <repo> <branch> Create new coordinator workspace"
+      echo "  agent, a [name]        Create/attach to agent (prompts if no name)"
+      echo "  wrapup, w [name]       Merge agent branch and cleanup"
+      echo "  coord, c               Attach to coordinator session"
+      echo "  kill, k <name|all>     Kill agent session(s)"
+      echo "  init, i <repo> <url>   Initialize new workspace from git"
+      echo ""
+      echo "Examples:"
+      echo "  cw init myproject git@github.com:user/myproject.git main"
+      echo "  cw new myproject main"
+      echo "  cw agent feature-x"
+      echo "  cw wrapup feature-x"
+      echo ""
+      echo "Workspace base: $WORKSPACE_BASE"
+      ;;
+  esac
+}
+
+# Convenience aliases
+alias agents='tmux ls 2>/dev/null | grep claude || echo "No claude sessions"'
+alias coord='cw coord'
