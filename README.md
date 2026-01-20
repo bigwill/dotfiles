@@ -77,6 +77,179 @@ The `bootstrap_mac.sh` script includes:
 - **Brewfile support** - Automatically installs packages from `Brewfile` if present
 - **Idempotent** - Safe to run multiple times
 
+---
+
+## Claude Agent Server
+
+A complete setup for running persistent Claude AI agents on remote servers, with mobile access via mosh.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Your Mac (WezTerm)                                             │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
+│  │ Coordinator │ │  Agent 1    │ │  Agent 2    │  ← Tabs       │
+│  │    Tab      │ │    Tab      │ │    Tab      │               │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘               │
+│         │               │               │                       │
+│         └───────────────┼───────────────┘                       │
+│                         │ SSH                                   │
+└─────────────────────────┼───────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Remote Server (apollo)                                         │
+│                                                                 │
+│  tmux sessions:                                                 │
+│  ┌─────────────────────────────────────────────┐               │
+│  │ claude-myrepo-coordinator                    │               │
+│  │ ┌─────────────────────────────────────────┐ │               │
+│  │ │ watch (status)           │ 25%          │ │               │
+│  │ ├─────────────────────────────────────────┤ │               │
+│  │ │ shell (merge/review)     │ 75%          │ │               │
+│  │ └─────────────────────────────────────────┘ │               │
+│  └─────────────────────────────────────────────┘               │
+│  ┌─────────────────────┐ ┌─────────────────────┐               │
+│  │ claude-myrepo-agent1│ │ claude-myrepo-agent2│               │
+│  │ (claude CLI running)│ │ (claude CLI running)│               │
+│  └─────────────────────┘ └─────────────────────┘               │
+│                                                                 │
+│  Git worktrees (isolated working directories):                  │
+│  ~/agent-workspace/myrepo/                                      │
+│  ├── main/     ← coordinator (base branch)                     │
+│  ├── agent1/   ← agent 1 worktree (feature branch)             │
+│  └── agent2/   ← agent 2 worktree (feature branch)             │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                          ▲
+                          │ mosh (survives network changes)
+┌─────────────────────────┼───────────────────────────────────────┐
+│  iPhone (Blink Shell)   │                                       │
+│  - Check agent status                                           │
+│  - Give agents new tasks                                        │
+│  - Merge completed work                                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Quick Start - Server Setup
+
+```bash
+# One-liner to set up a new server
+curl -fsSL https://raw.githubusercontent.com/bigwill/dotfiles/main/bootstrap_claude_server.sh | bash
+
+# Start new shell
+exec zsh
+
+# Initialize a workspace
+cw init myproject git@github.com:user/myproject.git main
+
+# Start the coordinator
+cw new myproject main
+```
+
+### Quick Start - Mac (WezTerm)
+
+The WezTerm keybindings are set up automatically when you run `bootstrap_mac.sh`.
+
+| Keybinding | Action |
+|------------|--------|
+| `CMD+SHIFT+C` | Create new Claude workspace (prompts for repo/branch) |
+| `CMD+SHIFT+N` | Add new agent tab (prompts for task name) |
+| `CMD+SHIFT+W` | Wrap up agent (merge branch, cleanup) |
+
+### Quick Start - iPhone
+
+1. Install **Blink Shell** and **Tailscale** from App Store
+2. Set up SSH key with Face ID (Secure Enclave) in Blink
+3. Add public key to server's `~/.ssh/authorized_keys`
+4. Connect: `mosh yourserver`
+5. Use CLI commands: `cw status`, `cw agent taskname`, etc.
+
+### CLI Commands (`cw`)
+
+Run these on the server (or via `cw` wrapper from Mac):
+
+| Command | Description |
+|---------|-------------|
+| `cw status` | Show all sessions and worktrees |
+| `cw new <repo> <branch>` | Create coordinator session |
+| `cw agent [name]` | Create/attach to agent (prompts if no name) |
+| `cw wrapup [name]` | Merge agent branch and cleanup |
+| `cw coord` | Attach to coordinator |
+| `cw kill <name\|all>` | Kill session(s) |
+| `cw init <repo> <url> [branch]` | Initialize workspace from git |
+
+### Workflow Example
+
+```bash
+# 1. On Mac: Create workspace (CMD+SHIFT+C)
+#    Or from terminal:
+ssh apollo
+cw new abax-kryptos rust-ckks-system
+
+# 2. Add agents (CMD+SHIFT+N or from terminal)
+cw agent ckks-encoder     # Creates branch: rust-ckks-system-ckks-encoder
+cw agent poly-tests       # Creates branch: rust-ckks-system-poly-tests
+
+# 3. In each agent tab, run claude CLI and assign tasks
+claude
+# "Implement the CKKS encoder from section 2 of PLAN.md"
+
+# 4. Close laptop - agents keep running in tmux!
+
+# 5. Check from iPhone
+mosh apollo
+cw status
+cw agent ckks-encoder   # Reattach to see progress
+
+# 6. When agent is done, merge from coordinator
+cw coord
+# In bottom pane:
+git diff main..rust-ckks-system-ckks-encoder
+git merge rust-ckks-system-ckks-encoder
+
+# 7. Cleanup completed agent
+cw wrapup ckks-encoder
+```
+
+### Files
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `dot-wezterm.lua` | Mac `~/.wezterm.lua` | WezTerm keybindings |
+| `dot-zshrc` | Mac `~/.zshrc` | Mac-side `cw` wrapper |
+| `dot-zshrc-claude` | Server `~/.zshrc` | Server-side `cw` CLI |
+| `bootstrap_claude_server.sh` | Run on server | Full server setup |
+
+### tmux Shortcuts
+
+Inside a tmux session:
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+B d` | Detach (session keeps running) |
+| `Ctrl+B o` | Switch between panes |
+| `Ctrl+B z` | Zoom current pane (toggle) |
+| `Ctrl+B [` | Scroll mode (q to exit) |
+| `Ctrl+B ↑/↓` | Move to pane above/below |
+
+### Requirements
+
+**Server:**
+- Linux (Debian/Ubuntu, RHEL, Arch)
+- SSH access
+- Git, tmux, mosh (installed by bootstrap script)
+
+**Mac:**
+- WezTerm terminal
+- SSH key configured for server
+
+**iPhone (optional):**
+- Blink Shell app
+- Tailscale (for easy remote access)
+
+---
+
 ## Helper Scripts
 
 ### `setup_git.sh`
