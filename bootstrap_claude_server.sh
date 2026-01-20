@@ -74,41 +74,39 @@ else
 fi
 
 # ----------------------------
-# 5. Set up .zshrc with Claude workspace CLI
+# 5. Set up .zshrc - symlink to dot-zshrc-claude
 # ----------------------------
-if [ -f "$HOME/.zshrc" ]; then
-  echo "[bootstrap] Backing up existing .zshrc..."
-  cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%s)"
-fi
+DOT_ZSHRC="$HOME/git/dotfiles/dot-zshrc-claude"
 
-cat > "$HOME/.zshrc" <<'EOF'
-# Claude Agent Server zshrc
-
+if [ -f "$DOT_ZSHRC" ]; then
+  if [ -f "$HOME/.zshrc" ] || [ -L "$HOME/.zshrc" ]; then
+    # Check if already correctly symlinked
+    if [ "$(readlink "$HOME/.zshrc" 2>/dev/null)" != "$DOT_ZSHRC" ]; then
+      echo "[bootstrap] Backing up existing .zshrc..."
+      mv "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%s)"
+    fi
+  fi
+  
+  if [ "$(readlink "$HOME/.zshrc" 2>/dev/null)" != "$DOT_ZSHRC" ]; then
+    echo "[bootstrap] Symlinking $DOT_ZSHRC -> ~/.zshrc"
+    ln -sf "$DOT_ZSHRC" "$HOME/.zshrc"
+  else
+    echo "[bootstrap] .zshrc already correctly symlinked."
+  fi
+else
+  echo "[bootstrap] Warning: $DOT_ZSHRC not found. Creating basic .zshrc..."
+  cat > "$HOME/.zshrc" <<'EOF'
+# Basic zshrc - dot-zshrc-claude not found
 export PATH="$HOME/.local/bin:$PATH"
 export ZSH="$HOME/.oh-my-zsh"
-
-# Powerlevel10k
 ZSH_THEME="powerlevel10k/powerlevel10k"
 plugins=(git)
-export POWERLEVEL9K_INSTANT_PROMPT=off
-
-# Load Oh My Zsh
-if [ -d "$ZSH" ]; then
-  source "$ZSH/oh-my-zsh.sh"
-fi
-
-# Load p10k config
+[ -d "$ZSH" ] && source "$ZSH/oh-my-zsh.sh"
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
-
-# Load Claude Workspace CLI
-if [ -f "$HOME/git/dotfiles/dot-zshrc-claude" ]; then
-  source "$HOME/git/dotfiles/dot-zshrc-claude"
-elif [ -f "$HOME/dot-zshrc-claude" ]; then
-  source "$HOME/dot-zshrc-claude"
-fi
 EOF
+fi
 
-echo "[bootstrap] Wrote ~/.zshrc"
+echo "[bootstrap] .zshrc configured"
 
 # ----------------------------
 # 6. Symlink p10k config
