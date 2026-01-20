@@ -87,8 +87,8 @@ echo "[bootstrap] Wrote ~/.zshrc"
 mkdir -p "$HOME/git"
 
 if [ ! -d "$HOME/git/dotfiles" ]; then
-  echo "[bootstrap] Cloning humbleaudio/dotfiles into ~/git/dotfiles..."
-  git clone git@github.com:humbleaudio/dotfiles.git "$HOME/git/dotfiles"
+  echo "[bootstrap] Cloning bigwill/dotfiles into ~/git/dotfiles..."
+  git clone git@github.com:bigwill/dotfiles.git "$HOME/git/dotfiles"
 else
   echo "[bootstrap] Repo ~/git/dotfiles already exists, pulling latest..."
   git -C "$HOME/git/dotfiles" pull --ff-only || true
@@ -114,18 +114,6 @@ if [ -f "$DOT_P10K" ]; then
   fi
 else
   echo "[bootstrap] Warning: $DOT_P10K not found. Skipping p10k setup."
-fi
-
-# ----------------------------
-# 6. Clone your Blackwell repo into ~/git/blackwell
-# ----------------------------
-# mkdir -p "$HOME/git" # Created in step 5
-if [ ! -d "$HOME/git/blackwell" ]; then
-  echo "[bootstrap] Cloning humbleaudio/blackwell into ~/git/blackwell..."
-  git clone git@github.com:humbleaudio/blackwell.git "$HOME/git/blackwell"
-else
-  echo "[bootstrap] Repo ~/git/blackwell already exists, pulling latest..."
-  git -C "$HOME/git/blackwell" pull --ff-only || true
 fi
 
 # ----------------------------
