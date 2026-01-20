@@ -119,25 +119,35 @@ cw() {
   if [ $# -eq 0 ]; then
     echo "Claude Workspace CLI (runs on apollo)"
     echo ""
+    echo "Workspace:"
     echo "  cw status         Show sessions & worktrees"
     echo "  cw new [repo] [branch]  Create workspace"
     echo "  cw agent [name]   Create/attach agent"
     echo "  cw wrapup [name]  Merge & cleanup agent"
     echo "  cw coord          Attach to coordinator"
     echo ""
+    echo "tmux:"
+    echo "  cw ls             List sessions"
+    echo "  cw attach [name]  Attach to session"
+    echo "  cw send <session> <cmd>  Send command"
+    echo ""
     echo "Or use WezTerm: CMD+SHIFT+C/N/W"
     return
   fi
   
   case "$1" in
-    status|s)
-      ssh apollo "cw status"
+    status|s|ls|list)
+      ssh apollo "cw $1"
       ;;
-    coord|c)
-      ssh apollo -A -t "cw coord"
+    coord|c|attach|at|switch|sw|new|n|agent|a|wrapup|w|panes|p|windows|win)
+      ssh apollo -A -t "cw $*"
+      ;;
+    send)
+      # send doesn't need -t since it doesn't attach
+      ssh apollo "cw $*"
       ;;
     *)
-      # For interactive commands (new, agent, wrapup), pass through with -t
+      # Default: pass through with -t for interactive
       ssh apollo -A -t "cw $*"
       ;;
   esac

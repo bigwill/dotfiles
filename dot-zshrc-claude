@@ -270,26 +270,109 @@ cw() {
       echo "Run: cw new $repo $branch"
       ;;
     
+    # cw ls - list tmux sessions
+    ls|list)
+      tmux ls 2>/dev/null || echo "No tmux sessions"
+      ;;
+    
+    # cw attach [session] - attach to session
+    attach|at)
+      local session="$2"
+      if [ -z "$session" ]; then
+        echo "Sessions:"
+        tmux ls 2>/dev/null || echo "No sessions"
+        echo ""
+        echo "Enter session name:"
+        read -r session
+        [ -z "$session" ] && return 1
+      fi
+      tmux attach -t "$session"
+      ;;
+    
+    # cw detach - show detach help (can't actually detach from outside)
+    detach|d)
+      echo "To detach from inside tmux: Ctrl+B then d"
+      ;;
+    
+    # cw panes [session] - list panes in a session
+    panes|p)
+      local session="${2:-$(tmux display-message -p '#S' 2>/dev/null)}"
+      if [ -z "$session" ]; then
+        echo "Usage: cw panes [session]"
+        echo "Or run from inside a tmux session"
+        return 1
+      fi
+      tmux list-panes -t "$session" -F '#{pane_index}: #{pane_current_command} (#{pane_width}x#{pane_height})'
+      ;;
+    
+    # cw windows [session] - list windows
+    windows|win)
+      local session="${2:-}"
+      if [ -n "$session" ]; then
+        tmux list-windows -t "$session"
+      else
+        tmux list-windows 2>/dev/null || echo "Not in a tmux session"
+      fi
+      ;;
+    
+    # cw send <session> <command> - send keys to a session
+    send)
+      local session="$2"
+      shift 2
+      local cmd="$*"
+      if [ -z "$session" ] || [ -z "$cmd" ]; then
+        echo "Usage: cw send <session> <command>"
+        echo "Example: cw send claude-myrepo-agent1 'git status'"
+        return 1
+      fi
+      tmux send-keys -t "$session" "$cmd" Enter
+      echo "Sent to $session: $cmd"
+      ;;
+    
+    # cw switch <session> - switch to session (from inside tmux)
+    switch|sw)
+      local session="$2"
+      if [ -z "$session" ]; then
+        echo "Sessions:"
+        tmux ls 2>/dev/null
+        echo ""
+        echo "Enter session to switch to:"
+        read -r session
+        [ -z "$session" ] && return 1
+      fi
+      tmux switch-client -t "$session"
+      ;;
+    
     # cw help
-    *)
+    help|--help|-h|*)
       echo "Claude Workspace CLI"
       echo ""
       echo "Usage: cw <command> [args]"
       echo ""
-      echo "Commands:"
+      echo "Workspace Commands:"
       echo "  status, s              Show all sessions and worktrees"
       echo "  new, n <repo> <branch> Create new coordinator workspace"
-      echo "  agent, a [name]        Create/attach to agent (prompts if no name)"
+      echo "  agent, a [name]        Create/attach to agent"
       echo "  wrapup, w [name]       Merge agent branch and cleanup"
       echo "  coord, c               Attach to coordinator session"
       echo "  kill, k <name|all>     Kill agent session(s)"
       echo "  init, i <repo> <url>   Initialize new workspace from git"
       echo ""
+      echo "tmux Shortcuts:"
+      echo "  ls, list               List all tmux sessions"
+      echo "  attach, at [session]   Attach to a session"
+      echo "  switch, sw [session]   Switch to session (inside tmux)"
+      echo "  panes, p [session]     List panes in session"
+      echo "  windows, win [session] List windows in session"
+      echo "  send <session> <cmd>   Send command to session"
+      echo "  detach, d              Show detach shortcut (Ctrl+B d)"
+      echo ""
       echo "Examples:"
-      echo "  cw init myproject git@github.com:user/myproject.git main"
-      echo "  cw new myproject main"
-      echo "  cw agent feature-x"
-      echo "  cw wrapup feature-x"
+      echo "  cw ls                           # List sessions"
+      echo "  cw attach claude-myrepo-agent1  # Attach to agent"
+      echo "  cw send claude-myrepo-agent1 'git status'"
+      echo "  cw agent feature-x              # Create/attach agent"
+      echo "  cw wrapup feature-x             # Merge and cleanup"
       echo ""
       echo "Workspace base: $WORKSPACE_BASE"
       ;;
