@@ -405,3 +405,4 @@ cw() {
 # Convenience aliases
 alias agents='tmux ls 2>/dev/null | grep claude || echo "No claude sessions"'
 alias coord='cw coord'
+export PATH="$HOME/.cargo/bin:$PATH"
